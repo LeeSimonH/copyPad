@@ -1,136 +1,188 @@
-// // Initialize button with user's preferred color
-// let changeColor = document.getElementById("changeColor");
+const copyPadDomEl = document.getElementById("copypad");
+const currentCopyPad = [];
 
-// chrome.storage.sync.get("color", ({ color }) => {
-//   changeColor.style.backgroundColor = color;
-// });
+function syncCopyPad() {
+  // create array of current copy pad by grabbing all child nodes of copy pad DOM el
+  const currCopyPad = JSON.stringify(Array.from(copyPadDomEl.children));
+  console.log("current copy pad DOMel: ", currCopyPad);
 
-// //
-// // When the button is clicked, inject setPageBackgroundColor into current page
-// changeColor.addEventListener("click", async () => {
-//   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // store overwrite previous copy pad in storage w/ current
+  // if doesn't exist, create one
+  chrome.storage.sync.set({ ["copypad"]: currentCopyPad }, function () {
+    // currentCopyPad.forEach(copyline => {
 
-//   chrome.scripting.executeScript({
-//     target: { tabId: tab.id },
-//     function: setPageBackgroundColor,
-//   });
-// });
-
-// The body of this function will be executed as a content script inside the
-// current page
-function setPageBackgroundColor() {
-  chrome.storage.sync.get("color", ({ color }) => {
-    document.body.style.backgroundColor = color;
+    // })
+    console.log("You saved me!");
   });
 }
 
-// EVERYTHING ABOVE THIS IS FROM THE GOOGLE TUTORIAL
+function getPrevCopyPadFromChromeStorage() {
+  clearCopyPad();
+  chrome.storage.sync.get(["copypad"], function (resultObj) {
+    if (resultObj == undefined) {
+      console.log("I am retrieved!");
+    } else {
+      const prevCopyPad = resultObj["copypad"];
+      console.log("retrieved copypad: ", prevCopyPad);
+      // console.log("is it an array? ", Array.isArray(prevCopyPad));
 
-// TEST ------
+      // iterate through each copy line in the previous Copy Pad array
+      prevCopyPad.forEach((copyLineObj) => {
+        // for each obj (rep. a copy line)
 
-const copyPad = document.getElementById("copypad");
+        // assign variable names to the data stored in the arrays inside the copy line array
+        // copied text
+        const copiedText = copyLineObj.text;
+        // link
+        const link = copyLineObj.link;
+        // timestamp
+        const timestamp = copyLineObj.timestamp;
+
+        // create a DOM representation of the copy line
+        createCopyLineDomEl(copiedText, link, timestamp);
+
+        // create another JS object of the copy line
+        let prevCopyLineObj = createCopyLineObj(copiedText, link, timestamp);
+        // push the obj back into the current copy pad JS array
+        currentCopyPad.push(prevCopyLineObj);
+      });
+    }
+  });
+}
+
+const clrBtn = document.getElementById("clear");
+clrBtn.addEventListener("click", () => clearCopyPad());
+function clearCopyPad() {
+  // clear the DOM
+  while (copyPadDomEl.children[0])
+    copyPadDomEl.removeChild(copyPadDomEl.lastElementChild);
+  // clear the storage
+  while (currentCopyPad[0]) currentCopyPad.pop();
+}
+
+let prevBtn = document.getElementById("previous");
+prevBtn.addEventListener("click", async () => {
+  getPrevCopyPadFromChromeStorage();
+});
+
+// ---------------------------------------
+
 let copyBtn = document.getElementById("copy");
-
 copyBtn.addEventListener("click", async () => {
-  // if there are 10 items in the list, remove one
-  if (copyPad.childElementCount >= 10)
-    copyPad.removeChild(copyPad.firstElementChild);
+  // if there are 10 items in the list, remove first one
+  if (copyPadDomEl.childElementCount >= 10)
+    copyPadDomEl.removeChild(copyPadDomEl.firstElementChild);
 
+  // create new copy line with copied text, add to copy pad dom El
   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  console.log("tab:", tab);
-  console.log(tab.url);
+  createCopyLineDomEl(
+    "You miss 100% of the shots you don't take. -Wayne Gretzky, -Michael Scott",
+    tab.url
+  );
 
+  // store new copy line in current copy pad JS object
+  // if there are 10 items in the list, remove first one
+  if (currentCopyPad.length >= 10) {
+    let removedCopyLine = currentCopyPad.shift();
+  }
+
+  currentCopyPad.push(
+    createCopyLineObj(
+      "You miss 100% of the shots you don't take. -Wayne Gretzky, -Michael Scott",
+      tab.url
+    )
+  );
+  console.log("your current JS copypad: ", currentCopyPad);
+  syncCopyPad();
+});
+
+function createCopyLineObj(
+  copiedText,
+  tabURL,
+  timestamp = new Date().toDateString()
+) {
+  // create properties for storage in JS object
+  const newCopyLineObj = {};
+  newCopyLineObj.domElType = "div";
+  newCopyLineObj.className = "copyline";
+  newCopyLineObj.text = copiedText;
+  newCopyLineObj.link = tabURL;
+  // if timestamp isn't passed in
+  newCopyLineObj.timestamp = timestamp;
+
+  // return the new copy line
+  return newCopyLineObj;
+}
+
+function createCopyLineDomEl(copiedText, tabURL) {
+  // create domEls and assign properties to corresponding domEl
   let newCopyLine = createDomEl("div", "copyline");
 
-  let copiedText = createDomEl("div", "copied", "This text was copied");
-  newCopyLine.appendChild(copiedText);
-
-  let link = createDomEl("a", "link", tab.url);
-  link.setAttribute("href", tab.url);
-  newCopyLine.appendChild(link);
-
+  let text = createDomEl("div", "copied", copiedText);
+  let link = createDomEl("a", "link", tabURL);
   let timestamp = createDomEl("div", "timestamp", new Date().toDateString());
-  newCopyLine.appendChild(timestamp);
 
-  copyPad.appendChild(newCopyLine);
-  // copyPad.textContent = tab.url;
+  // append parts of the copy line to the copy line DOM el
+  appendChildren([text, link, timestamp], newCopyLine);
 
-  // console.log("clicked");
-  // chrome.scripting.executeScript({
-  //   target: { tabId: tab.id },
-  //   function: addToCopyPad.bind(this.target.tabId),
-  // });
-});
-
-function addToCopyPad() {
-  const selection = document.getSelection();
-  console.log(selection);
-  new CopyLine(selection);
-}
-// TEST ------
-
-// EVERYTHING ABOVE THIS IS FROM THE GOOGLE TUTORIAL
-
-// const copyPad = document.getElementById("copypad");
-
-// when you copy something, it adds it to the copypad
-
-// make page listen for a copy event
-document.addEventListener("copy", (event) => {
-  // get the highlighted stuff
-  const selection = document.getSelection();
-
-  // add what's highlighted to the copyPad
-  // create a new dom element
-  // add what's highlighted to dom element
-  // append element to copypad
-
-  // if there are already 10 things in the copy pad, delete one thing
-  // if (10thing) delete thing
-  new CopyLine(selection);
-  // event.clipboardData.setData("text/plain", selection.toString().toUpperCase());
-  // event.preventDefault();
-
-  // *STRETCH -
-  // include URL/link to the current page
-  // timestamp (time, date)
-});
-
-class CopyLine {
-  constructor(copiedText) {
-    this.copiedText = copiedText;
-
-    let newCopyLine = createDomEl("div", "copyline");
-
-    let text = createDomEl("div", "copied", this.copiedText);
-    newCopyLine.appendChild(text);
-
-    let link = createDomEl("div", "link", copiedText);
-    newCopyLine.appendChild(link);
-
-    let timestamp = createDomEl("div", "timestamp");
-
-    // append newly created line (w/ copied text, link, and timestamp) to the copypad
-    copyPad.appendChild(newCopyLine);
-  }
-
-  // this is a helper function to create new dom elements
-  createDomEl(type, className, content) {
-    if (!content) content = "";
-    let newDomEl = document.createElement(type);
-    newDomEl.classList.add(className);
-    newDomEl.textContent = content;
-    return newDomEl;
-  }
+  // append the copy line DOM el to the copy pad
+  copyPadDomEl.appendChild(newCopyLine);
 }
 
-function createDomEl(type, className, content) {
-  if (!content) content = "";
+function createDomEl(type, className, content, timestamp) {
+  // creates type of el
   let newDomEl = document.createElement(type);
+  // assign class
   newDomEl.classList.add(className);
-  newDomEl.textContent = content;
+  // if content was not entered as argument, is the containing itemLine div - no text content
+  if (!content) content = "";
+  // otherwise, all divs contain either copied text or the timestamp
+  if (type === "div") newDomEl.textContent = content;
+  // if the type is a link, set the href to be the link
+  else if (type === "a") {
+    newDomEl.setAttribute("href", content);
+    newDomEl.textContent = content;
+  }
   return newDomEl;
 }
 
-// when clicking the extension, brings up the entire copypad
-// contains everything (the past 10 things) you've copied
+function appendChildren(arrOfEls, parentEl) {
+  arrOfEls.forEach((domEl) => parentEl.appendChild(domEl));
+}
+
+// ---------------------------------------
+
+// ---------------------------------------
+
+// // temp button living in popup to copy selected content to clipboard
+// let copyBtn = document.getElementById("copy");
+// copyBtn.addEventListener("click", async () => {
+//   // if there are 10 items in the list, remove one
+//   if (copyPadDomEl.childElementCount >= 10)
+//     copyPadDomEl.removeChild(copyPadDomEl.firstElementChild);
+
+//   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+//   let newCopyLine = createDomEl("div", "copyline");
+
+//   let copiedText = createDomEl("div", "copied", "This text was copied");
+//   newCopyLine.appendChild(copiedText);
+
+//   let link = createDomEl("a", "link", tab.url);
+//   link.setAttribute("href", tab.url);
+//   newCopyLine.appendChild(link);
+
+//   let timestamp = createDomEl("div", "timestamp", new Date().toDateString());
+//   newCopyLine.appendChild(timestamp);
+
+//   copyPadDomEl.appendChild(newCopyLine);
+//   syncCopyPad();
+// });
+
+// function createDomEl(type, className, content) {
+//   if (!content) content = "";
+//   let newDomEl = document.createElement(type);
+//   newDomEl.classList.add(className);
+//   newDomEl.textContent = content;
+//   return newDomEl;
+// }
