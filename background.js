@@ -1,26 +1,18 @@
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.sync.set({ copypad });
+let copiedItem = "";
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (/^http/.test(tab.url) && changeInfo.status === "complete") {
+    chrome.tabs.executeScript(tabId, { file: "./contentScript.js" });
+  }
 });
 
-// ----------------------
-
-chrome.windows.chrome.contextMenus.create({
-  id: "copyPad",
-  title: "CopyPad",
-  contexts: ["selection"],
-});
-
-chrome.tabs.onCreated.addListener((tab) => {
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: function () {
-      document.addEventListener("copy", () => {
-        let selection = document.getSelection();
-        console.log(selection);
-      });
-    },
-    tabId,
-  });
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.message === "copiedItem") {
+    console.log(request.payload.copiedItem);
+    copiedItem = request.payload.copiedItem;
+    // assign copied item to latest stored object in storage
+    console.log(copiedItem);
+  }
 });
 
 // ----------------------

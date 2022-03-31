@@ -74,7 +74,7 @@ prevBtn.addEventListener("click", async () => {
 });
 
 // ---------------------------------------
-
+let copiedItem = "";
 let copyBtn = document.getElementById("copy");
 copyBtn.addEventListener("click", async () => {
   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -82,9 +82,11 @@ copyBtn.addEventListener("click", async () => {
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
     function: () => {
-      document.addEventListener("copy", () =>
-        console.log(document.getSelection())
-      );
+      document.addEventListener("copy", () => {
+        copiedItem = document.getSelection();
+        copiedItem = copiedItem.toString();
+        console.log(copiedItem);
+      });
     },
   });
 
