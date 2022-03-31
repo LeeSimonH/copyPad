@@ -1,0 +1,15 @@
+
+
+#copypad {
+  width: 500px;
+  height: auto;
+}
+
+.copyline {
+  display: grid;
+  grid-template-columns: 3fr 3fr 1fr;
+}
+
+.copyline > * {
+  white-space: nowrap;
+}
