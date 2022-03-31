@@ -4,15 +4,12 @@ const currentCopyPad = [];
 function syncCopyPad() {
   // create array of current copy pad by grabbing all child nodes of copy pad DOM el
   const currCopyPad = JSON.stringify(Array.from(copyPadDomEl.children));
-  console.log("current copy pad DOMel: ", currCopyPad);
+  // console.log("current copy pad DOMel: ", currCopyPad);
 
   // store overwrite previous copy pad in storage w/ current
   // if doesn't exist, create one
   chrome.storage.sync.set({ ["copypad"]: currentCopyPad }, function () {
-    // currentCopyPad.forEach(copyline => {
-
-    // })
-    console.log("You saved me!");
+    // console.log("Saved current copypad.");
   });
 }
 
@@ -51,13 +48,24 @@ function getPrevCopyPadFromChromeStorage() {
 }
 
 const clrBtn = document.getElementById("clear");
-clrBtn.addEventListener("click", () => clearCopyPad());
+clrBtn.addEventListener("click", () => {
+  clearCopyPad();
+  clearCopyPadStorage();
+});
+
 function clearCopyPad() {
   // clear the DOM
   while (copyPadDomEl.children[0])
     copyPadDomEl.removeChild(copyPadDomEl.lastElementChild);
-  // clear the storage
+  // clear the JS array
   while (currentCopyPad[0]) currentCopyPad.pop();
+}
+
+function clearCopyPadStorage() {
+  // rewrite the storage with the empty array
+  chrome.storage.sync.set({ ["copypad"]: [] }, function () {
+    console.log("Storage cleared.");
+  });
 }
 
 let prevBtn = document.getElementById("previous");
@@ -69,12 +77,22 @@ prevBtn.addEventListener("click", async () => {
 
 let copyBtn = document.getElementById("copy");
 copyBtn.addEventListener("click", async () => {
+  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    function: () => {
+      document.addEventListener("copy", () =>
+        console.log(document.getSelection())
+      );
+    },
+  });
+
   // if there are 10 items in the list, remove first one
   if (copyPadDomEl.childElementCount >= 10)
     copyPadDomEl.removeChild(copyPadDomEl.firstElementChild);
 
   // create new copy line with copied text, add to copy pad dom El
-  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   createCopyLineDomEl(
     "You miss 100% of the shots you don't take. -Wayne Gretzky, -Michael Scott",
     tab.url
@@ -92,7 +110,7 @@ copyBtn.addEventListener("click", async () => {
       tab.url
     )
   );
-  console.log("your current JS copypad: ", currentCopyPad);
+  // console.log("your current JS copypad: ", currentCopyPad);
   syncCopyPad();
 });
 
@@ -150,39 +168,16 @@ function appendChildren(arrOfEls, parentEl) {
   arrOfEls.forEach((domEl) => parentEl.appendChild(domEl));
 }
 
-// ---------------------------------------
+getPrevCopyPadFromChromeStorage();
 
 // ---------------------------------------
 
-// // temp button living in popup to copy selected content to clipboard
-// let copyBtn = document.getElementById("copy");
-// copyBtn.addEventListener("click", async () => {
-//   // if there are 10 items in the list, remove one
-//   if (copyPadDomEl.childElementCount >= 10)
-//     copyPadDomEl.removeChild(copyPadDomEl.firstElementChild);
+// need to make tab listen for a copy event
 
-//   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-//   let newCopyLine = createDomEl("div", "copyline");
-
-//   let copiedText = createDomEl("div", "copied", "This text was copied");
-//   newCopyLine.appendChild(copiedText);
-
-//   let link = createDomEl("a", "link", tab.url);
-//   link.setAttribute("href", tab.url);
-//   newCopyLine.appendChild(link);
-
-//   let timestamp = createDomEl("div", "timestamp", new Date().toDateString());
-//   newCopyLine.appendChild(timestamp);
-
-//   copyPadDomEl.appendChild(newCopyLine);
-//   syncCopyPad();
-// });
-
-// function createDomEl(type, className, content) {
-//   if (!content) content = "";
-//   let newDomEl = document.createElement(type);
-//   newDomEl.classList.add(className);
-//   newDomEl.textContent = content;
-//   return newDomEl;
-// }
+function copySelected() {
+  let selected = window.getSelection();
+  // selected = selected.text;
+  console.log("selection copied", selected);
+  // let selection = document.getSelection().toString();
+  // console.log(selection);
+}
